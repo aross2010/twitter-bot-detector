@@ -189,7 +189,7 @@ def analyze_tweet_similarity(tweet_text: str, tweets_analyzed: list, num_tweet_p
     
     return identical_tweets_count
 
-asyncio.run(create_dataset())
+#asyncio.run(create_dataset())
 
 
 
