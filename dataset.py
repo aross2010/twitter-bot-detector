@@ -7,42 +7,61 @@ import cv2
 import numpy as np
 import urllib.request
 from fuzzywuzzy import fuzz
+from transformers import pipeline
 
-FIELDS = ["user_id", "screen_name", "is_bot", "account_age", "is_blue_verified", "is_verified", "profile_description", "follwing_count", "followers_count", "following_to_followers_ratio", "fast_followers_count", "normal_followers_count", "fast_to_normal_followers_ratio", "tweets_count", "parsed_tweets_count", "parsed_retweets_count", "replies_ratio", "retweets_ratio", "freq_of_tweets", "identical_tweets_ratio", "avg_replies_per_tweet", "avg_urls_per_tweet", "avg_likes_per_tweet", "possibly_sensitive", "profile_image_url", "profile_banner_url", "is_profile_image_valid", "followers_to_likes_ratio"]
+FIELDS = ['user_id', 'screen_name', 'is_bot', 'account_age', 'is_blue_verified', 'is_verified', 'profile_description_sentiment', 'following_count', 'followers_count', 'following_to_followers_ratio', 'normal_to_fast_followers_ratio', 'tweets_count', 'likes_count', 'media_count', 'avg_sentiment', 'replies_ratio', 'retweets_ratio', 'freq_of_tweets', 'identical_tweets_ratio', 'avg_replies_per_tweet', 'avg_urls_per_tweet', 'avg_likes_per_tweet', 'possibly_sensitive', 'profile_image_url', 'profile_banner_url', 'is_profile_image_valid', 'followers_to_likes_ratio']
 TARGET_TWEETS = 100
-NUM_USERS = 15
+NUM_USERS = 1000
 
 # Will parse data set and abstract key values to use for model training
 async def create_dataset():
 
-    csvs = ['./datasets/botmeter-2019-dataset.csv']
-    dataset = pd.DataFrame(columns=FIELDS)
+    csvs = ['twibot-22-dataset.csv']
     client = get_client()
+
+    last_user_id = None # add here the last user ID in the dataset to avoid duplicates
+
+    try:
+        dataset = pd.read_csv('dataset.csv')  
+        last_user_id = int(dataset['user_id'].iloc[-1]) # get the last user ID in the dataset
+        print(f"Last user ID in dataset: {last_user_id}")
+    except:
+        dataset = pd.DataFrame(columns=FIELDS)
+        dataset.to_csv('dataset.csv', index=False)  # create the dataset file at the start
+        print("Dataset file created.")
 
     for csv in csvs:
         df = pd.read_csv(csv)
 
         if 'id' not in df.columns or 'label' not in df.columns: continue
 
-        counter = 0
+        users_in_ds = dataset.shape[0] # number of users in dataset - columns in the dataset
 
-        for _, row in df.iterrows():
-            if counter == NUM_USERS: break
+        print(f"Starting the dataset creation process with {dataset.shape[0]} users in the dataset...")
+
+        bots, humans = 0, 0
+
+        for i, row in df.iterrows():
+            if users_in_ds == NUM_USERS: break
             user_id = row['id']
             label = row['label']
-            if not user_id or not label: continue
-            res = await add_to_dataset(user_id[1:], label, client, dataset)
+            if humans > bots and label == 'human' or bots > humans and label == 'bot': # balance the dataset
+                print(f"Skipping user {user_id} with label {label} to balance the dataset.")
+                continue
+            if last_user_id: # skip users already in the dataset if adding onto existing dataset
+                if int(user_id[1:]) == last_user_id:
+                    last_user_id = None
+                continue
+            if not user_id or not label: continue # skip non-existent users
+            if label == 'bot': bots += 1
+            else: humans += 1
+            res = await add_user_to_dataset(user_id[1:], label, client, dataset)
             if res == "INVALID USER": continue
-            counter += 1
-            print(f"Added user {user_id} to dataset. Sleeping for 2 minutes...")
-            await asyncio.sleep(120) # sleep for 60 seconds to avoid rate limiting
-    
-    dataset.to_csv('dataset.csv', index=False)
-
-    print("Dataset created successfully.")
+            users_in_ds = dataset.shape[0]
+            print(f"Added user {user_id} ({users_in_ds}) to dataset. Sleeping for 2 minutes...")
+            await asyncio.sleep(120)  # sleep to avoid rate limiting
         
-
-async def add_to_dataset(user_id: str, label: str, client, dataset: pd.DataFrame): 
+async def add_user_to_dataset(user_id: str, label: str, client, dataset: pd.DataFrame): 
     try:
         user = await client.get_user_by_id(user_id)
     except Exception as e:
@@ -53,15 +72,17 @@ async def add_to_dataset(user_id: str, label: str, client, dataset: pd.DataFrame
         print(f"User with ID {user_id} not found.")
         return "INVALID USER"
     
-    row = await parse_user(user, label)
-    dataset.loc[len(dataset)] = row
+    row = await analyze_user_data(user, label)
+    # dataset.loc[len(dataset)] = row  # This line is no longer needed
+    row_df = pd.DataFrame([row])  
+    row_df.to_csv('dataset.csv', mode='a', header=False, index=False)  # append row to dataset file
 
     return "SUCCESS"
 
 # preprocesses user data to be used in the dataset
-async def parse_user(user: User, label):
+async def analyze_user_data(user: User, label):
     age = get_age(user.created_at)
-    num_tweets_parsed, num_retweets_parsed, num_tweet_pairs, likes,  replies, reply_tweets, urls, identical_tweets_count = 0, 0, 0, 0, 0, 0, 0, 0
+    num_tweets_parsed, num_text_tweets, num_retweets_parsed, num_tweet_pairs, likes,  replies, reply_tweets, urls, identical_tweets_count = 0, 0, 0, 0, 0, 0, 0, 0, 0
 
     try:
         # analyze profile picture with openCV
@@ -75,40 +96,47 @@ async def parse_user(user: User, label):
     print(f"Fetching tweets for user {user.id}...")
 
     res = None
-
-    try:
-        # get user tweets (up to ~200)
-        res = await user.get_tweets('Tweets', count=TARGET_TWEETS)
-        while res and len(tweets) < TARGET_TWEETS:
-            tweets += res
-            print(f"Retrieved {len(tweets)} tweets for user {user.id}.")
-            res = await res.next()
-            # await asyncio.sleep(15) # sleep for 15 between pages to avoid rate limiting
-    except Exception as e:
-        if 'Rate limit exceeded' in str(e): 
-            print(f"Rate limit exceeded for user {user.id}. Sleeping for 15 minutes...")
-            await asyncio.sleep(901) # sleep for 15 minutes to reset rate limit
-            while res and len(tweets) < 500:
+    finished = False
+    while not finished:
+        try:
+            # get user tweets (up to ~100)
+            res = await user.get_tweets('Tweets', count=TARGET_TWEETS)
+            while res and len(tweets) < TARGET_TWEETS:
+                tweets += res
+                print(f"Retrieved {len(tweets)} tweets for user {user.id}.")
                 res = await res.next()
-                if res: tweets += res
-        else: 
-            print(f"Error fetching tweets for user {user.id}: {e}")
-            return
+                await asyncio.sleep(15) # sleep for 15 seconds between pages to avoid rate limiting
+            finished = True
+        except Exception as e:
+            if 'Rate limit exceeded' in str(e): 
+                print(f"Rate limit exceeded for user {user.id}. Sleeping for 15 minutes...")
+                await asyncio.sleep(900) # sleep for 15 minutes to reset rate limit
+            else: 
+                print(f"Error fetching tweets for user {user.id}: {e}")
+                return
 
 
     tweets_analyzed = []
     print(f"Analyzing tweets for user {user.id} with {len(tweets)} tweets...")
+
+    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment')
+    sentiment = 0
     
     for tweet in tweets:
         if tweet.retweeted_tweet: 
             num_retweets_parsed += 1
             continue
+        if tweet.text:
+            sentiment += get_sentiment_score(tweet.text, sentiment_analyzer)
+            num_text_tweets += 1
         num_tweets_parsed += 1
         if tweet.in_reply_to: reply_tweets += 1
         likes += tweet.favorite_count
         replies += tweet.reply_count
         urls += len(tweet.urls)
-        identical_tweets_count += analyze_tweet_similarity(tweet.text, tweets_analyzed, num_tweet_pairs)
+        tweets, pairs = analyze_tweet_similarity(tweet.text, tweets_analyzed)
+        num_tweet_pairs += pairs
+        identical_tweets_count += tweets
 
     print(f"Finished analyzing tweets for user {user.id}.")
 
@@ -119,28 +147,27 @@ async def parse_user(user: User, label):
         'account_age': age,
         'is_blue_verified': 1 if user.is_blue_verified else 0,
         'is_verified': 1 if user.verified else 0,
-        'profile_description': user.description if user.description else '',
-        'follwing_count': user.following_count,
+        'profile_description_sentiment': round(get_sentiment_score(user.description, sentiment_analyzer), 2) if user.description else 0,
+        'following_count': user.following_count,
         'followers_count': user.followers_count,
-        'following_to_followers_ratio': user.following_count if user.followers_count == 0 else round(user.following_count / user.followers_count, 4),
-        'fast_followers_count': user.fast_followers_count,
-        'normal_followers_count': user.normal_followers_count,
-        'fast_to_normal_followers_ratio': user.fast_followers_count if user.normal_followers_count == 0 else round(user.fast_followers_count / user.normal_followers_count, 4 ),
+        'following_to_followers_ratio': user.following_count if user.followers_count == 0 else round(user.following_count / user.followers_count, 2),
+        'normal_to_fast_followers_ratio': user.normal_followers_count if user.fast_followers_count == 0 else round(user.normal_followers_count / user.fast_followers_count, 2 ),
         'tweets_count': user.statuses_count,
-        'parsed_tweets_count': num_tweets_parsed,
-        'parsed_retweets_count': num_retweets_parsed,
-        'replies_ratio': 0 if num_tweets_parsed == 0 else reply_tweets / num_tweets_parsed,
-        'retweets_ratio': 0 if num_tweets_parsed == 0 else round(num_retweets_parsed / (num_tweets_parsed + num_retweets_parsed), 4),
-        'freq_of_tweets': round(user.statuses_count / age, 4), # tweets per year
-        'identical_tweets_ratio': 0 if num_tweet_pairs == 0 else round(identical_tweets_count / num_tweet_pairs,4), 
-        'avg_replies_per_tweet': 0 if num_tweets_parsed == 0 else round(replies / num_tweets_parsed, 4),
-        'avg_urls_per_tweet': 0 if num_tweets_parsed == 0 else round(urls / num_tweets_parsed, 4),
-        'avg_likes_per_tweet': 0 if num_tweets_parsed == 0 else round(likes / num_tweets_parsed, 4),
+        'likes_count': user.favourites_count,
+        'media_count': user.media_count,
+        'avg_sentiment': 0 if num_text_tweets == 0 else round(sentiment / num_text_tweets, 2),
+        'replies_ratio': 0 if num_tweets_parsed == 0 else round(reply_tweets / num_tweets_parsed, 2),
+        'retweets_ratio': 0 if num_tweets_parsed == 0 else round(num_retweets_parsed / (num_tweets_parsed + num_retweets_parsed), 2),
+        'freq_of_tweets': round(user.statuses_count / age, 2), # tweets per year
+        'identical_tweets_ratio': 0 if num_tweet_pairs == 0 else round(identical_tweets_count / num_tweet_pairs,2), 
+        'avg_replies_per_tweet': 0 if num_tweets_parsed == 0 else round(replies / num_tweets_parsed, 2),
+        'avg_urls_per_tweet': 0 if num_tweets_parsed == 0 else round(urls / num_tweets_parsed, 2),
+        'avg_likes_per_tweet': 0 if num_tweets_parsed == 0 else round(likes / num_tweets_parsed, 2),
         'possibly_sensitive': 1 if user.possibly_sensitive else 0,
-        'profile_image_url': user.profile_image_url if user.profile_image_url else '',
-        'profile_banner_url': user.profile_banner_url if user.profile_banner_url else '',
+        'profile_image_url': 1 if user.profile_image_url else 0,
+        'profile_banner_url': 1 if user.profile_banner_url else 0,
         'is_profile_image_valid': 1 if is_profile_image_valid else 0,
-        'followers_to_likes_ratio': 0 if likes == 0 or num_tweets_parsed == 0 else round(user.followers_count / (likes / num_tweets_parsed), 4) # followers to likes ratio for 
+        'followers_to_likes_ratio': 0 if likes == 0 or num_tweets_parsed == 0 else round(user.followers_count / (likes / num_tweets_parsed), 2) # followers to likes ratio for 
     }
 
 # returns the age in years to three decimal places
@@ -174,24 +201,43 @@ def load_image(url: str):
     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
     return image
 
-def analyze_tweet_similarity(tweet_text: str, tweets_analyzed: list, num_tweet_pairs: int, similarity_score_test_mark=95):
-    if not tweet_text: return False
+def analyze_tweet_similarity(tweet_text: str, tweets_analyzed: list, similarity_score_test_mark=95):
+    identical_tweets_count, num_tweet_pairs = 0, 0
 
-    identical_tweets_count = 0
-
-    for tweet in tweets_analyzed:
+    for other_tweet in tweets_analyzed:
         num_tweet_pairs += 1
-        similarity_score = fuzz.ratio(tweet_text, tweet)
+        similarity_score = fuzz.ratio(tweet_text, other_tweet)
         if similarity_score >= similarity_score_test_mark: 
             identical_tweets_count += 1
-            print(f"Similarity score: {similarity_score} for tweet: {tweet_text} and {tweet}")
+            print(f"Similarity score: {similarity_score} for tweet: {tweet_text} and {other_tweet}")
     tweets_analyzed.append(tweet_text)
     
-    return identical_tweets_count
+    return identical_tweets_count, num_tweet_pairs
 
-asyncio.run(create_dataset())
+def get_sentiment_score(text: str, sentiment_analyzer):
 
+    result = sentiment_analyzer(text)
+    label_scores = {res['label']: res['score'] for res in result}
 
+    # map the labels to weights: LABEL_0 -> -1, LABEL_1 -> 0, LABEL_2 -> +1
+    weights = {'LABEL_0': -1, 'LABEL_1': 0, 'LABEL_2': 1}
+
+    return sum(weights[label] * score for label, score in label_scores.items()) # score between -1 and 1 - negative, neutral, positive
+
+# asyncio.run(create_dataset())
+
+df = pd.read_csv('dataset.csv')
+
+# Iterate through all rows and columns
+for row_index, row in df.iterrows():
+    for col_index, value in row.items():
+        # Check if the value is a float
+        if isinstance(value, float):
+            print(f"Found float value: {value} in row {row_index} column {col_index}")
+            # Round to 2 decimal places
+            df.at[row_index, col_index] = round(value, 2)
+
+df.to_csv('dataset.csv', index=False)  # save the updated dataset file
 
 
 
