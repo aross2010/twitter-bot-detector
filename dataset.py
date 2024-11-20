@@ -22,12 +22,12 @@ async def create_dataset():
     last_user_id = None # add here the last user ID in the dataset to avoid duplicates
 
     try:
-        dataset = pd.read_csv('dataset.csv')  
-        last_user_id = int(dataset['user_id'].iloc[-1]) # get the last user ID in the dataset
+        df = pd.read_csv('dataset.csv')  
+        last_user_id = int(df['user_id'].iloc[-1]) # get the last user ID in the dataset
         print(f"Last user ID in dataset: {last_user_id}")
     except:
-        dataset = pd.DataFrame(columns=FIELDS)
-        dataset.to_csv('dataset.csv', index=False)  # create the dataset file at the start
+        df = pd.DataFrame(columns=FIELDS)
+        df.to_csv('dataset.csv', index=False)  # create the dataset file at the start
         print("Dataset file created.")
 
     for csv in csvs:
@@ -35,9 +35,9 @@ async def create_dataset():
 
         if 'id' not in df.columns or 'label' not in df.columns: continue
 
-        users_in_ds = dataset.shape[0] # number of users in dataset - columns in the dataset
+        users_in_ds = df.shape[0] # number of users in dataset - columns in the dataset
 
-        print(f"Starting the dataset creation process with {dataset.shape[0]} users in the dataset...")
+        print(f"Starting the dataset creation process with {users_in_ds} users in the dataset...")
 
         bots, humans = 0, 0
 
@@ -55,13 +55,13 @@ async def create_dataset():
             if not user_id or not label: continue # skip non-existent users
             if label == 'bot': bots += 1
             else: humans += 1
-            res = await add_user_to_dataset(user_id[1:], label, client, dataset)
+            res = await add_user_to_dataset(user_id[1:], label, client)
             if res == "INVALID USER": continue
-            users_in_ds = dataset.shape[0]
+            users_in_ds = df.shape[0]
             print(f"Added user {user_id} ({users_in_ds}) to dataset. Sleeping for 2 minutes...")
             await asyncio.sleep(120)  # sleep to avoid rate limiting
         
-async def add_user_to_dataset(user_id: str, label: str, client, dataset: pd.DataFrame): 
+async def add_user_to_dataset(user_id: str, label: str, client): 
     try:
         user = await client.get_user_by_id(user_id)
     except Exception as e:
@@ -73,7 +73,6 @@ async def add_user_to_dataset(user_id: str, label: str, client, dataset: pd.Data
         return "INVALID USER"
     
     row = await analyze_user_data(user, label)
-    # dataset.loc[len(dataset)] = row  # This line is no longer needed
     row_df = pd.DataFrame([row])  
     row_df.to_csv('dataset.csv', mode='a', header=False, index=False)  # append row to dataset file
 
@@ -224,21 +223,7 @@ def get_sentiment_score(text: str, sentiment_analyzer):
 
     return sum(weights[label] * score for label, score in label_scores.items()) # score between -1 and 1 - negative, neutral, positive
 
-# asyncio.run(create_dataset())
-
-df = pd.read_csv('dataset.csv')
-
-# Iterate through all rows and columns
-for row_index, row in df.iterrows():
-    for col_index, value in row.items():
-        # Check if the value is a float
-        if isinstance(value, float):
-            print(f"Found float value: {value} in row {row_index} column {col_index}")
-            # Round to 2 decimal places
-            df.at[row_index, col_index] = round(value, 2)
-
-df.to_csv('dataset.csv', index=False)  # save the updated dataset file
-
-
+if __name__ == "__main__":
+    asyncio.run(create_dataset())
 
 
