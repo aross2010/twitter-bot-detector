@@ -31,17 +31,15 @@ async def create_dataset():
         print("Dataset file created.")
 
     for csv in csvs:
-        df = pd.read_csv(csv)
+        df_reading = pd.read_csv(csv)
 
-        if 'id' not in df.columns or 'label' not in df.columns: continue
+        if 'id' not in df_reading.columns or 'label' not in df_reading.columns: continue
 
-        users_in_ds = df.shape[0] # number of users in dataset - columns in the dataset
-
-        print(f"Starting the dataset creation process with {users_in_ds} users in the dataset...")
+        users_in_ds = pd.read_csv('dataset.csv').shape[0]
 
         bots, humans = 0, 0
 
-        for i, row in df.iterrows():
+        for i, row in df_reading.iterrows():
             if users_in_ds == NUM_USERS: break
             user_id = row['id']
             label = row['label']
@@ -57,7 +55,7 @@ async def create_dataset():
             else: humans += 1
             res = await add_user_to_dataset(user_id[1:], label, client)
             if res == "INVALID USER": continue
-            users_in_ds = df.shape[0]
+            users_in_ds = pd.read_csv('dataset.csv').shape[0]
             print(f"Added user {user_id} ({users_in_ds}) to dataset. Sleeping for 2 minutes...")
             await asyncio.sleep(120)  # sleep to avoid rate limiting
         
@@ -73,8 +71,8 @@ async def add_user_to_dataset(user_id: str, label: str, client):
         return "INVALID USER"
     
     row = await analyze_user_data(user, label)
-    row_df = pd.DataFrame([row])  
-    row_df.to_csv('dataset.csv', mode='a', header=False, index=False)  # append row to dataset file
+    df_row = pd.DataFrame([row])  
+    df_row.to_csv('dataset.csv', mode='a', header=False, index=False)  # append row to dataset file
 
     return "SUCCESS"
 
@@ -118,7 +116,7 @@ async def analyze_user_data(user: User, label):
     tweets_analyzed = []
     print(f"Analyzing tweets for user {user.id} with {len(tweets)} tweets...")
 
-    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment')
+    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment', device='mps')
     sentiment = 0
     
     for tweet in tweets:
@@ -146,27 +144,27 @@ async def analyze_user_data(user: User, label):
         'account_age': age,
         'is_blue_verified': 1 if user.is_blue_verified else 0,
         'is_verified': 1 if user.verified else 0,
-        'profile_description_sentiment': round(get_sentiment_score(user.description, sentiment_analyzer), 2) if user.description else 0,
+        'profile_description_sentiment': round(get_sentiment_score(user.description, sentiment_analyzer), 3) if user.description else None,
         'following_count': user.following_count,
         'followers_count': user.followers_count,
-        'following_to_followers_ratio': user.following_count if user.followers_count == 0 else round(user.following_count / user.followers_count, 2),
-        'normal_to_fast_followers_ratio': user.normal_followers_count if user.fast_followers_count == 0 else round(user.normal_followers_count / user.fast_followers_count, 2 ),
+        'following_to_followers_ratio': user.following_count if user.followers_count == 0 else round(user.following_count / user.followers_count, 3),
+        'normal_to_fast_followers_ratio': user.normal_followers_count if user.fast_followers_count == 0 else round(user.normal_followers_count / user.fast_followers_count, 3 ),
         'tweets_count': user.statuses_count,
         'likes_count': user.favourites_count,
         'media_count': user.media_count,
-        'avg_sentiment': 0 if num_text_tweets == 0 else round(sentiment / num_text_tweets, 2),
-        'replies_ratio': 0 if num_tweets_parsed == 0 else round(reply_tweets / num_tweets_parsed, 2),
-        'retweets_ratio': 0 if num_tweets_parsed == 0 else round(num_retweets_parsed / (num_tweets_parsed + num_retweets_parsed), 2),
-        'freq_of_tweets': round(user.statuses_count / age, 2), # tweets per year
-        'identical_tweets_ratio': 0 if num_tweet_pairs == 0 else round(identical_tweets_count / num_tweet_pairs,2), 
-        'avg_replies_per_tweet': 0 if num_tweets_parsed == 0 else round(replies / num_tweets_parsed, 2),
-        'avg_urls_per_tweet': 0 if num_tweets_parsed == 0 else round(urls / num_tweets_parsed, 2),
-        'avg_likes_per_tweet': 0 if num_tweets_parsed == 0 else round(likes / num_tweets_parsed, 2),
+        'avg_sentiment': 0 if num_text_tweets == 0 else round(sentiment / num_text_tweets, 3),
+        'replies_ratio': 0 if num_tweets_parsed == 0 else round(reply_tweets / num_tweets_parsed, 3),
+        'retweets_ratio': 0 if num_tweets_parsed == 0 else round(num_retweets_parsed / (num_tweets_parsed + num_retweets_parsed), 3),
+        'freq_of_tweets': round(user.statuses_count / age, 3), # tweets per year
+        'identical_tweets_ratio': 0 if num_tweet_pairs == 0 else round(identical_tweets_count / num_tweet_pairs,3), 
+        'avg_replies_per_tweet': 0 if num_tweets_parsed == 0 else round(replies / num_tweets_parsed, 3),
+        'avg_urls_per_tweet': 0 if num_tweets_parsed == 0 else round(urls / num_tweets_parsed, 3),
+        'avg_likes_per_tweet': 0 if num_tweets_parsed == 0 else round(likes / num_tweets_parsed, 3),
         'possibly_sensitive': 1 if user.possibly_sensitive else 0,
         'profile_image_url': 1 if user.profile_image_url else 0,
         'profile_banner_url': 1 if user.profile_banner_url else 0,
         'is_profile_image_valid': 1 if is_profile_image_valid else 0,
-        'followers_to_likes_ratio': 0 if likes == 0 or num_tweets_parsed == 0 else round(user.followers_count / (likes / num_tweets_parsed), 2) # followers to likes ratio for 
+        'followers_to_likes_ratio': 0 if likes == 0 or num_tweets_parsed == 0 else round(user.followers_count / (likes / num_tweets_parsed), 3) # followers to likes ratio for 
     }
 
 # returns the age in years to three decimal places
