@@ -9,9 +9,9 @@ import urllib.request
 from fuzzywuzzy import fuzz
 from transformers import pipeline
 
-FIELDS = ['user_id', 'screen_name', 'is_bot', 'account_age', 'is_blue_verified', 'is_verified', 'profile_description_sentiment', 'following_count', 'followers_count', 'following_to_followers', 'tweet_freq', 'identical_tweet_freq', 'parsed_owned_tweets_count', 'parsed_owned_text_tweets_count', 'parsed_retweets_count', 'likes_freq', 'media_freq', 'avg_tweet_sentiment', 'replies_to_normal', 'retweets_to_normal', 'avg_replies', 'avg_urls', 'avg_likes', 'likes_to_followers', 'is_possibly_sensitive', 'is_profile_image', 'is_profile_banner', 'is_profile_image_valid']
-TARGET_TWEETS = 125
-MIN_TWEETS = 50
+FIELDS = ["user_id", "screen_name", "is_bot", "account_age", "is_blue_verified", "is_verified", "profile_description_sentiment", "following_count", "followers_count", "following_to_followers", "is_possibly_sensitive", "is_profile_image", "is_profile_banner", "is_profile_image_valid", "tweet_freq", "parsed_owned_tweets_count", "parsed_owned_text_tweets_count", "parsed_retweets_count", "likes_freq", "media_freq", "followers_freq", "following_freq", "replies_to_owned", "quotes_to_owned", "retweets_to_owned", "avg_urls", "avg_hashtags", "identical_tweet_freq", "avg_tweet_sentiment", "avg_replies_per_follower", "avg_likes_per_follower", "avg_retweets_per_follower", "avg_views_per_follower"]
+TARGET_TWEETS = 120
+MIN_TWEETS = 0
 NUM_USERS = 2500
 ADDING_TO_DATASET = True
 
@@ -60,8 +60,8 @@ async def create_dataset():
             res = await add_user_to_dataset(user_id[1:], label, client)
             if res == "INVALID USER": continue
             users_in_ds = pd.read_csv('dataset.csv').shape[0]
-            print(f"Added user {user_id} ({users_in_ds}) to dataset. Sleeping for 2 minutes...")
-            await asyncio.sleep(120)  # sleep to avoid rate limiting
+            print(f"Added user {user_id} ({users_in_ds}) to dataset.")
+            # await asyncio.sleep(120)  # sleep to avoid rate limiting
         
 async def add_user_to_dataset(user_id: str, label: str, client): 
     try:
@@ -86,7 +86,7 @@ async def add_user_to_dataset(user_id: str, label: str, client):
 # preprocesses user data to be used in the dataset
 async def analyze_user_data(user: User, label, seeding_data=False):
     age = get_age(user.created_at)
-    parsed_owned_tweets_count, parsed_owned_text_tweets_count, parsed_retweets_count, likes_count, replies_count, reply_tweets_count, urls_count, identical_tweets_count = 0, 0, 0, 0, 0, 0, 0, 0
+    parsed_owned_tweets_count, parsed_owned_text_tweets_count, parsed_retweets_count, likes_count, replies_count, retweets_count, views_count, reply_tweets_count, urls_count, hashtags_count, identical_tweets_count, quotes_tweet_count = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
     try:
         # analyze profile picture with openCV
@@ -97,7 +97,7 @@ async def analyze_user_data(user: User, label, seeding_data=False):
     
     tweets = []
 
-    # print(f"Fetching tweets for user {user.id}...")
+    print(f"Fetching tweets for user {user.id}...")
 
     res = None
     finished = False
@@ -106,23 +106,23 @@ async def analyze_user_data(user: User, label, seeding_data=False):
             res = await user.get_tweets('Tweets', count=TARGET_TWEETS)
             while res and len(tweets) < TARGET_TWEETS:
                 tweets += res
-                # print(f"Retrieved {len(tweets)} tweets for user {user.id}.")
+                print(f"Retrieved {len(tweets)} tweets for user {user.id}.")
                 res = await res.next()
-                if seeding_data: await asyncio.sleep(15) # sleep for 15 seconds between pages to avoid rate limiting
+                if seeding_data: await asyncio.sleep(25) # sleep for 25 seconds between pages to avoid rate limiting
             finished = True
         except Exception as e:
             if 'Rate limit exceeded' in str(e): 
-                # print(f"Rate limit exceeded for user {user.id}. Sleeping for 15 minutes...")
+                print(f"Rate limit exceeded for user {user.id}. Sleeping for 15 minutes...")
                 await asyncio.sleep(900) # sleep for 15 minutes to reset rate limit
             else: 
                 print(f"Error fetching tweets for user {user.id}: {e}")
                 return
     
-    if len(tweets) < MIN_TWEETS: return False # skip users with less than 50 tweets
+    if seeding_data and len(tweets) < MIN_TWEETS: return False 
 
-    # print(f"Analyzing tweets for user {user.id} with {len(tweets)} tweets...")
+    print(f"Analyzing tweets for user {user.id} with {len(tweets)} tweets...")
 
-    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment', device='mps')
+    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment', device='mps', truncation=True, max_length=512)
     sentiment = 0
 
     tweets = tweets[:TARGET_TWEETS] # limit to 125 tweets
@@ -136,15 +136,21 @@ async def analyze_user_data(user: User, label, seeding_data=False):
             parsed_owned_text_tweets_count += 1
         parsed_owned_tweets_count += 1
         if tweet.in_reply_to: reply_tweets_count += 1
+        hashtags_count += len(tweet.hashtags)
         likes_count += tweet.favorite_count
         replies_count += tweet.reply_count
+        retweets_count += tweet.retweet_count
+        views_count += tweet.view_count
         urls_count += len(tweet.urls)
+        if tweet.is_quote_status: quotes_tweet_count += 1
     
-    identical_tweets_count, num_tweet_pairs = analyze_tweets_similarity(tweets)
+    identical_tweet_pairs, num_tweet_pairs = analyze_tweets_similarity(tweets)
 
-    # print(f"Finished analyzing tweets for user {user.id}.")
+    print(f"Finished analyzing tweets for user {user.id}.")
 
+    # 33 features
     return {
+        # User Information
         'user_id': user.id,
         'screen_name': user.screen_name,
         'is_bot': 1 if label == 'bot' else 0,
@@ -155,24 +161,32 @@ async def analyze_user_data(user: User, label, seeding_data=False):
         'following_count': user.following_count,
         'followers_count': user.followers_count,
         'following_to_followers': user.following_count if user.followers_count == 0 else round(user.following_count / user.followers_count, 3),
-        'tweet_freq': round(user.statuses_count / age, 3), # tweets per year
-        'identical_tweet_freq': 0 if num_tweet_pairs == 0 else round(identical_tweets_count / num_tweet_pairs,3), 
+        'is_possibly_sensitive': 1 if user.possibly_sensitive else 0,
+        'is_profile_image': 1 if user.profile_image_url else 0,
+        'is_profile_banner': 1 if user.profile_banner_url else 0,
+        'is_profile_image_valid': 1 if is_profile_image_valid else 0,
+         # User Activity
+        'tweet_freq': round(user.statuses_count / age, 3), 
         'parsed_owned_tweets_count': parsed_owned_tweets_count,
         'parsed_owned_text_tweets_count': parsed_owned_text_tweets_count,
         'parsed_retweets_count': parsed_retweets_count,
         'likes_freq': round(likes_count / age, 3),
         'media_freq': round(user.media_count / age, 3),
-        'avg_tweet_sentiment': 0 if parsed_owned_text_tweets_count == 0 else round(sentiment / parsed_owned_text_tweets_count, 3),
-        'replies_to_normal': 0 if parsed_owned_tweets_count == 0 else round(reply_tweets_count / parsed_owned_tweets_count, 3),
-        'retweets_to_normal': 0 if parsed_owned_tweets_count == 0 else round(parsed_retweets_count / (parsed_owned_tweets_count + parsed_retweets_count), 3),
-        'avg_replies': 0 if parsed_owned_tweets_count == 0 else round(replies_count / parsed_owned_tweets_count, 3),
+        'followers_freq': round(user.followers_count / age, 3),
+        'following_freq': round(user.following_count / age, 3),
+        # Tweet Analysis
+        'replies_to_owned': 0 if parsed_owned_tweets_count == 0 else round(reply_tweets_count / parsed_owned_tweets_count, 3),
+        'quotes_to_owned': 0 if parsed_owned_tweets_count == 0 else round(quotes_tweet_count / parsed_owned_tweets_count, 3),
+        'retweets_to_owned': 0 if parsed_owned_tweets_count == 0 else round(parsed_retweets_count / parsed_owned_tweets_count, 3),
         'avg_urls': 0 if parsed_owned_tweets_count == 0 else round(urls_count / parsed_owned_tweets_count, 3),
-        'avg_likes': 0 if parsed_owned_tweets_count == 0 else round(likes_count / parsed_owned_tweets_count, 3),
-        'likes_to_followers': 0 if user.followers_count == 0 else round(likes_count / user.followers_count, 3),
-        'is_possibly_sensitive': 1 if user.possibly_sensitive else 0,
-        'is_profile_image': 1 if user.profile_image_url else 0,
-        'is_profile_banner': 1 if user.profile_banner_url else 0,
-        'is_profile_image_valid': 1 if is_profile_image_valid else 0,
+        'avg_hashtags': 0 if parsed_owned_tweets_count == 0 else round(hashtags_count / parsed_owned_tweets_count, 3),
+        'identical_tweet_freq': 0 if num_tweet_pairs == 0 else round(identical_tweet_pairs / num_tweet_pairs, 3), 
+        'avg_tweet_sentiment': 0 if parsed_owned_text_tweets_count == 0 else round(sentiment / parsed_owned_text_tweets_count, 3),
+        # Tweet Engagement
+        'avg_replies_per_follower': replies_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(replies_count / parsed_owned_tweets_count / user.followers_count, 3),
+        'avg_likes_per_follower': likes_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(likes_count / parsed_owned_tweets_count / user.followers_count, 3),
+        'avg_retweets_per_follower': retweets_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(retweets_count / parsed_owned_tweets_count / user.followers_count, 3),
+        'avg_views_per_follower': views_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(views_count / parsed_owned_tweets_count / user.followers_count, 3),
     }
 
 # returns the age in number of days
@@ -207,7 +221,7 @@ def load_image(url: str):
     return image
 
 def analyze_tweets_similarity(tweets: list, similarity_score_test_mark=95):
-    identical_tweets_count, num_pairs= 0, 0
+    identical_tweet_pairs, num_pairs = 0, 0
     tweets_analyzed = set()
 
     for tweet in tweets:
@@ -218,9 +232,10 @@ def analyze_tweets_similarity(tweets: list, similarity_score_test_mark=95):
             num_pairs += 1
             similarity_score = fuzz.ratio(normalized_tweet, other_tweet)
             if similarity_score >= similarity_score_test_mark: 
-                identical_tweets_count += 1
+                identical_tweet_pairs += 1
         tweets_analyzed.add(normalized_tweet)
-    return identical_tweets_count, num_pairs
+
+    return identical_tweet_pairs, num_pairs
 
 def get_sentiment_score(text: str, sentiment_analyzer):
 
