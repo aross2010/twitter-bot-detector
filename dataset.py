@@ -8,6 +8,9 @@ import numpy as np
 import urllib.request
 from fuzzywuzzy import fuzz
 from transformers import pipeline
+import torch
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # disregard this if you're running on mac
 
 FIELDS = ['user_id', 'screen_name', 'is_bot', 'account_age', 'is_blue_verified', 'is_verified', 'profile_description_sentiment', 'following_count', 'followers_count', 'following_to_followers', 'tweet_freq', 'identical_tweet_freq', 'parsed_owned_tweets_count', 'parsed_owned_text_tweets_count', 'parsed_retweets_count', 'likes_freq', 'media_freq', 'avg_tweet_sentiment', 'replies_to_normal', 'retweets_to_normal', 'avg_replies', 'avg_urls', 'avg_likes', 'likes_to_followers', 'is_possibly_sensitive', 'is_profile_image', 'is_profile_banner', 'is_profile_image_valid']
 TARGET_TWEETS = 125
@@ -122,7 +125,7 @@ async def analyze_user_data(user: User, label, seeding_data=False):
 
     # print(f"Analyzing tweets for user {user.id} with {len(tweets)} tweets...")
 
-    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment', device='mps')
+    sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment', device=device)
     sentiment = 0
 
     tweets = tweets[:TARGET_TWEETS] # limit to 125 tweets

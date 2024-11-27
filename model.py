@@ -6,6 +6,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 import joblib
 
+
 # file is for creating and loading the model, more detailed version in notebook
 
 df = pd.read_csv('dataset.csv')

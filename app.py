@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, render_template
 from main import get_client
 from user import User
-from dataset import parse_user
+from dataset import analyze_user_data
 from bot_detection import detect_bot
 import asyncio
 
@@ -29,13 +29,13 @@ async def process_prediction(screen_name):
         if not user:
             return {"error": "Invalid User"}
 
-        parsed_user = await parse_user(user, "UNKNOWN")
+        parsed_user = await analyze_user_data(user, "UNKNOWN")
         print(f"Parsed user: {parsed_user}")
 
         bot_status = detect_bot(parsed_user)
         print(f"Bot status: {bot_status}")
 
-        return {"bot_status": bot_status}
+        return {"bot_status": bool(bot_status)}
     
     except Exception as e:
         print(f"Exception caught: {e}")
