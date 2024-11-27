@@ -12,7 +12,7 @@ import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # disregard this if you're running on mac
 
-FIELDS = ["user_id", "screen_name", "is_bot", "account_age", "is_blue_verified", "is_verified", "profile_description_sentiment", "following_count", "followers_count", "following_to_followers", "is_possibly_sensitive", "is_profile_image", "is_profile_banner", "is_profile_image_valid", "tweet_freq", "parsed_owned_tweets_count", "parsed_owned_text_tweets_count", "parsed_retweets_count", "likes_freq", "media_freq", "followers_freq", "following_freq", "replies_to_owned", "quotes_to_owned", "retweets_to_owned", "avg_urls", "avg_hashtags", "identical_tweet_freq", "avg_tweet_sentiment", "avg_replies_per_follower", "avg_likes_per_follower", "avg_retweets_per_follower", "avg_views_per_follower"]
+FIELDS = ["user_id", "screen_name", "is_bot", "account_age", "is_blue_verified", "is_verified", "profile_description_sentiment", "following_count", "followers_count", "following_to_followers", "is_possibly_sensitive", "is_profile_image", "is_profile_banner", "is_profile_image_valid", "tweet_freq", "parsed_owned_tweets_count", "parsed_owned_text_tweets_count", "parsed_retweets_count", "likes_freq", "media_freq", "followers_freq", "following_freq", "replies_to_owned", "quotes_to_owned", "retweets_to_owned", "avg_urls", "avg_hashtags", "identical_tweet_freq", "avg_tweet_sentiment", "avg_replies_per_follower", "avg_likes_per_follower", "avg_retweets_per_follower"]
 TARGET_TWEETS = 120
 MIN_TWEETS = 0
 NUM_USERS = 2500
@@ -42,29 +42,20 @@ async def create_dataset():
 
         users_in_ds = pd.read_csv('dataset.csv').shape[0]
 
-        bots, humans = 0, 0
-
         for _, row in df_reading.iterrows():
             if users_in_ds == NUM_USERS: break
             user_id = row['id']
             label = row['label']
-            if humans > bots and label == 'human' or bots > humans and label == 'bot': # balance the dataset
-                print(f"Skipping user {user_id} with label {label} to balance the dataset.")
-                continue
             if last_user_id != None: # skip users already in the dataset if adding onto existing dataset
-                print(f"Last user ID: {last_user_id} vs. current user ID: {user_id}")
                 if int(user_id[1:]) == last_user_id:
-                    print(f"Skipping user {user_id} as it is already in the dataset.")
                     last_user_id = None
                 continue
             if not user_id or not label: continue # skip non-existent users
-            if label == 'bot': bots += 1
-            else: humans += 1
             res = await add_user_to_dataset(user_id[1:], label, client)
             if res == "INVALID USER": continue
             users_in_ds = pd.read_csv('dataset.csv').shape[0]
-            print(f"Added user {user_id} ({users_in_ds}) to dataset.")
-            # await asyncio.sleep(120)  # sleep to avoid rate limiting
+            print(f"Added user {user_id} ({users_in_ds}) to dataset. Sleeping for 130 seconds...")
+            await asyncio.sleep(130)  # sleep to avoid rate limiting
         
 async def add_user_to_dataset(user_id: str, label: str, client): 
     try:
@@ -89,7 +80,7 @@ async def add_user_to_dataset(user_id: str, label: str, client):
 # preprocesses user data to be used in the dataset
 async def analyze_user_data(user: User, label, seeding_data=False):
     age = get_age(user.created_at)
-    parsed_owned_tweets_count, parsed_owned_text_tweets_count, parsed_retweets_count, likes_count, replies_count, retweets_count, views_count, reply_tweets_count, urls_count, hashtags_count, identical_tweets_count, quotes_tweet_count = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    parsed_owned_tweets_count, parsed_owned_text_tweets_count, parsed_retweets_count, likes_count, replies_count, retweets_count, reply_tweets_count, urls_count, hashtags_count, quotes_tweet_count =  0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
     try:
         # analyze profile picture with openCV
@@ -109,9 +100,7 @@ async def analyze_user_data(user: User, label, seeding_data=False):
             res = await user.get_tweets('Tweets', count=TARGET_TWEETS)
             while res and len(tweets) < TARGET_TWEETS:
                 tweets += res
-                print(f"Retrieved {len(tweets)} tweets for user {user.id}.")
                 res = await res.next()
-                if seeding_data: await asyncio.sleep(25) # sleep for 25 seconds between pages to avoid rate limiting
             finished = True
         except Exception as e:
             if 'Rate limit exceeded' in str(e): 
@@ -143,7 +132,6 @@ async def analyze_user_data(user: User, label, seeding_data=False):
         likes_count += tweet.favorite_count
         replies_count += tweet.reply_count
         retweets_count += tweet.retweet_count
-        views_count += tweet.view_count
         urls_count += len(tweet.urls)
         if tweet.is_quote_status: quotes_tweet_count += 1
     
@@ -151,7 +139,7 @@ async def analyze_user_data(user: User, label, seeding_data=False):
 
     print(f"Finished analyzing tweets for user {user.id}.")
 
-    # 33 features
+    # 32 features
     return {
         # User Information
         'user_id': user.id,
@@ -189,7 +177,6 @@ async def analyze_user_data(user: User, label, seeding_data=False):
         'avg_replies_per_follower': replies_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(replies_count / parsed_owned_tweets_count / user.followers_count, 3),
         'avg_likes_per_follower': likes_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(likes_count / parsed_owned_tweets_count / user.followers_count, 3),
         'avg_retweets_per_follower': retweets_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(retweets_count / parsed_owned_tweets_count / user.followers_count, 3),
-        'avg_views_per_follower': views_count if parsed_owned_tweets_count == 0 or user.followers_count == 0 else round(views_count / parsed_owned_tweets_count / user.followers_count, 3),
     }
 
 # returns the age in number of days
