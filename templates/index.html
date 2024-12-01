@@ -24,7 +24,8 @@
 
         const data = await response.json();
         if (response.ok) {
-          document.getElementById("result").innerText = `Is Bot: ${data.bot_status}`;
+          document.getElementById("result").innerText = `Is Bot: ${data.prediction}`;
+          document.getElementById("result").innerText += `\nProbability: ${data.probability}`;
         } else {
           document.getElementById("result").innerText = `Error: ${data.error}`;
         }

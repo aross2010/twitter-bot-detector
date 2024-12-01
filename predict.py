@@ -13,10 +13,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # and top three user features that contributed to the prediction w/ their values
 # prediction can be invalid if the user is private (unable to access data) 
 # or has no tweets (not enough data)
-async def make_prediction(user_id: str):
+async def make_prediction(screen_name: str):
     client = get_client()
 
-    user = await client.get_user_by_id(user_id)
+    user = await client.get_user_by_screen_name(screen_name)
     if not user: return {"prediction": "invalid", "probability": 0, "features": [], "error": "User not found."}
 
     parsed_owned_tweets_count, parsed_owned_text_tweets_count, parsed_retweets_count, likes_count, replies_count, retweets_count, reply_tweets_count, urls_count, hashtags_count, quotes_tweet_count, sentiment =  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
