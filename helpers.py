@@ -81,5 +81,30 @@ def get_sentiment_score(text: str, sentiment_analyzer):
 
     return sum(weights[label] * score for label, score in label_scores.items()) # score between -1 and 1 - negative, neutral, positive
 
-
-
+features_dict = {
+    'account_age': 'Account Age',
+    'is_blue_verified': 'Blue Verification Status',
+    'profile_description_sentiment': 'Profile Description Sentiment',
+    'following_count': 'Following Count',
+    'followers_count': 'Followers Count',
+    'following_to_followers': 'Following to Followers Ratio',
+    'is_possibly_sensitive': 'Possibly Sensitive Content',
+    'is_default_profile_image': 'Default Profile Image',
+    'is_profile_banner': 'Profile Banner',
+    'is_profile_image_valid': 'Profile Image Validity',
+    'tweet_freq': 'Tweet Frequency',
+    'likes_freq': 'Likes Frequency',
+    'media_freq': 'Posted Video or Photo Frequency',
+    'followers_freq': 'Followers Gained Per Day',
+    'following_freq': 'Accounts Followed Per Day',
+    'replies_to_owned': 'Replies to Owned Tweets Ratio',
+    'quotes_to_owned': 'Quotes to Owned Tweets Ratio',
+    'retweets_to_owned': 'Retweets to Owned Tweets Ratio',
+    'avg_urls': 'Average URLs Per Tweet',
+    'avg_hashtags': 'Average Hashtags Per Tweet',
+    'identical_tweet_freq': 'Identical Tweet Frequency',
+    'avg_tweet_sentiment': 'Average Tweet Sentiment',
+    'avg_replies_per_follower': 'Average Replies On a Tweet Per 1,000 Followers',
+    'avg_likes_per_follower': 'Average Likes On a Tweet Per 1,000 Followers',
+    'avg_retweets_per_follower': 'Average Retweets On a Tweet Per 1,000 Followers'
+}

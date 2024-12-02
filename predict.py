@@ -1,5 +1,5 @@
 import asyncio
-from helpers import get_client, get_age, analyze_profile_image, get_sentiment_score, analyze_tweets_similarity
+from helpers import get_client, get_age, analyze_profile_image, get_sentiment_score, analyze_tweets_similarity, features_dict
 from transformers import pipeline
 import torch
 import pandas as pd
@@ -74,11 +74,11 @@ async def make_prediction(screen_name: str):
         'following_count': user.following_count,
         'followers_count': user.followers_count,
         'following_to_followers': round(user.following_count / user.followers_count, 3) if user.followers_count > 0 else 0,
-        'is_possible_sensitive': 1 if user.possibly_sensitive else 0,
+        'is_possibly_sensitive': 1 if user.possibly_sensitive else 0,
         'is_default_profile_image': 1 if user.default_profile_image else 0,
         'is_profile_banner': 1 if user.profile_banner_url else 0,
         'is_profile_image_valid': 1 if is_profile_image_valid else 0,
-        'tweet_freq': round(parsed_owned_tweets_count / age, 3) if age > 0 else 0,
+        'tweet_freq': round(user.statuses_count / age, 3) if age > 0 else 0,
         'likes_freq': round(likes_count / age, 3) if age > 0 else 0,
         'media_freq': round(user.media_count / age, 3) if age > 0 else 0,
         'followers_freq': round(user.followers_count / age, 3) if age > 0 else 0,
@@ -95,22 +95,27 @@ async def make_prediction(screen_name: str):
         'avg_retweets_per_follower': round(retweets_count / parsed_owned_tweets_count / user.followers_count * 1000, 3) if user.followers_count > 0 and parsed_owned_tweets_count > 0 else 0,
     }
 
-    user_df = pd.DataFrame([features])
+    user_df = pd.DataFrame(features, index=[0])
 
     model = joblib.load('model.joblib')
-    prediction = model.predict(user_df)
-    probabilities = model.predict_proba(user_df)
+    prediction = model.predict(user_df.values)
+    probabilities = model.predict_proba(user_df.values)
 
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(user_df)
     feature_names = user_df.columns.tolist()
 
-    feature_contributions = list(zip(feature_names, shap_values[:, 0 if prediction[0] == 0 else 1]))
+    feature_contributions = list(zip(feature_names, shap_values[0][:, 0 if prediction[0] == 0 else 1]))
     feature_contributions.sort(key=lambda x: abs(x[1]), reverse=True)
-    top_features = {feature: user_df[feature] for feature, _ in feature_contributions[:3]}
+    top_features = {features_dict[feature]: features[feature] for feature, _ in feature_contributions[:3]}
 
     return {
         'prediction': 'bot' if prediction[0] == 1 else 'human',
-        'probability': probabilities[0][1] if prediction[0] == 1 else probabilities[0][0],
+        'probability': float(probabilities[0][1]) if prediction[0] == 1 else float(probabilities[0][0]),
         'top_features': top_features
     }
+
+if __name__ == '__main__':
+    screen_name = 'DKVaishnav96' # DKVaishnav96 for example
+    print(asyncio.run(make_prediction(screen_name)))
+    
