@@ -11,7 +11,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # disregar
 FIELDS = ["user_id", "screen_name", "is_bot", "account_age", "is_blue_verified", "is_verified", "profile_description_sentiment", "following_count", "followers_count", "following_to_followers", "is_possibly_sensitive", "is_default_profile_image", "is_profile_banner", "is_profile_image_valid", "tweet_freq", "parsed_owned_tweets_count", "parsed_owned_text_tweets_count", "parsed_retweets_count", "likes_freq", "media_freq", "followers_freq", "following_freq", "replies_to_owned", "quotes_to_owned", "retweets_to_owned", "avg_urls", "avg_hashtags", "identical_tweet_freq", "avg_tweet_sentiment", "avg_replies_per_follower", "avg_likes_per_follower", "avg_retweets_per_follower"]
 TARGET_TWEETS = 125
 MIN_TWEETS = 0
-NUM_USERS = 2500
+NUM_USERS = 3000
 ADDING_TO_DATASET = True
 
 # Will parse data set and abstract key values to use for model training
