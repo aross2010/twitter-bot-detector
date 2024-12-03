@@ -28,13 +28,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} flex px-4 tracking-tighter flex-col items-center justify-center bg-gray-50 text-gray-950`}
+        className={`${geistSans.variable} ${geistMono.variable} flex tracking-tighter flex-col items-center justify-center bg-gray-50 text-gray-950`}
       >
         <Navbar />
-        <main className="mt-24 w-full max-w-[1000px] flex justify-center">
+        <main className="mt-24 w-full max-w-[1000px] px-4 flex justify-center min-h-[100vh]">
           {children}
         </main>
-        {/* <Footer /> */}
+        <Footer />
       </body>
     </html>
   )

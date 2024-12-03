@@ -7,6 +7,7 @@ import { FaCircleXmark, FaMagnifyingGlass } from 'react-icons/fa6'
 import { FaSearch } from 'react-icons/fa'
 import { AiOutlineLoading } from 'react-icons/ai'
 import Link from 'next/link'
+import numeral from 'numeral'
 
 export default function Home() {
   const [username, setUsername] = useState('')
@@ -43,9 +44,7 @@ export default function Home() {
       screen_name: user.screen_name,
     })
     const data = result.data as DetectionResults
-    if (data.error) {
-      console.error(data.error)
-    }
+    console.log(data)
     setDetectionResults(data)
     setLoading(false)
   }
@@ -72,8 +71,11 @@ export default function Home() {
 
   return (
     <section className=" w-full max-w-[450px] flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-extrabold text-xl">Find a Twitter Account</h2>
+      <div className="flex flex-col mb-4">
+        <h2 className="font-extrabold text-3xl">Twitter Bot Detector</h2>
+        <h3 className="text-gray-500">
+          A machine learning approach to detecting Twitter/X bots.
+        </h3>
       </div>
 
       <div
@@ -81,7 +83,7 @@ export default function Home() {
           isSearchBarFocused ? 'outline outline-twitter' : 'outline-none'
         }`}
       >
-        <FaMagnifyingGlass className="text-gray-400 ml-3" />
+        <FaMagnifyingGlass className="text-gray-500 ml-3" />
         <input
           type="text"
           value={username}
@@ -92,7 +94,7 @@ export default function Home() {
           onBlur={() => setIsSearchBarFocused(false)}
         />
         <button
-          className="mr-3 text-gray-400 text-lg"
+          className="mr-3 text-gray-500 text-lg"
           onClick={
             !isSearchLoading
               ? () => {
@@ -129,32 +131,85 @@ export default function Home() {
                 <span className="font-bold text-lg leading-none">
                   {detectedUser?.name}
                 </span>
-                <span className="text-gray-400 leading-none">
+                <span className="text-gray-500 leading-none">
                   @{detectedUser?.screen_name}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center flex-wrap gap-4">
               <div className="flex items-center gap-1">
                 <span className="font-semibold">
-                  {detectedUser.following_count}
+                  {detectedUser.following_count > 999
+                    ? numeral(detectedUser.following_count).format('0.0a')
+                    : detectedUser.following_count}
                 </span>
-                <span className="text-gray-400">Following</span>
+                <span className="text-gray-500">Following</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold">
-                  {detectedUser.followers_count}
+                  {detectedUser.followers_count > 999
+                    ? numeral(detectedUser.followers_count).format('0.0a')
+                    : detectedUser.followers_count}
                 </span>
-                <span className="text-gray-400">Followers</span>
+                <span className="text-gray-500">Followers</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold">
-                  {detectedUser.statuses_count}
+                  {detectedUser.statuses_count > 999
+                    ? numeral(detectedUser.statuses_count).format('0.0a')
+                    : detectedUser.statuses_count}
                 </span>
-                <span className="text-gray-400">Posts</span>
+                <span className="text-gray-500">Posts</span>
               </div>
             </div>
           </Link>
+          {loading && (
+            <div className="mt-8 flex items-center gap-4">
+              <AiOutlineLoading className="animate-spin text-2xl" />
+              <p className="text-center text-gray-500 mt-2">
+                Performing account analysis...
+              </p>
+            </div>
+          )}
+          {detectionResults && !loading && (
+            <div className="mt-8 flex flex-col ">
+              {!detectionResults.error ? (
+                <Fragment>
+                  <div className="flex items-center gap-2">
+                    <span>Account Status:</span>
+                    <span
+                      className={`font-bold ${
+                        detectionResults.prediction === 'human'
+                          ? 'text-green-500'
+                          : 'text-red-500'
+                      }`}
+                    >
+                      {detectionResults.prediction.charAt(0).toUpperCase() +
+                        detectionResults.prediction.slice(1)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>Probability:</span>
+                    <span
+                      className={`font-bold ${
+                        detectionResults.prediction === 'human'
+                          ? 'text-green-500'
+                          : 'text-red-500'
+                      }`}
+                    >
+                      {Math.round(detectionResults.probability * 100)}%
+                    </span>
+                  </div>
+                </Fragment>
+              ) : (
+                <Fragment>
+                  <span className="font-bold text-red-500">
+                    {detectionResults.error}
+                  </span>
+                </Fragment>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

@@ -40,10 +40,10 @@ async def make_prediction(screen_name: str):
             finished = True
         except Exception as e:
             if 'Rate limit exceeded' in str(e): 
-                return {"prediction": "invalid", "probability": 0, "features": [], "error": "Server rate limit exceeded. Try again later."}
+                return {"prediction": "invalid", "probability": 0, "features": [], "error": "Server rate limit exceeded. Try again in 15 minutes."}
     
     if len(tweets) <= 0: 
-        return {"prediction": "invalid", "probability": 0, "features": [], "error": "User is either private or has no tweets."}
+        return {"prediction": "invalid", "probability": 0, "features": [], "error": "User is either private or has no tweets to analyze."}
 
     sentiment_analyzer = pipeline('sentiment-analysis', model='cardiffnlp/twitter-roberta-base-sentiment', device=device, max_length=512, truncation=True)
     tweets = tweets[:TARGET_TWEETS]

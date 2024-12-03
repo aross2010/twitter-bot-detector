@@ -11,12 +11,14 @@
   "dependencies": {
     "axios": "^1.7.8",
     "next": "15.0.3",
+    "numeral": "^2.0.6",
     "react": "19.0.0-rc-66855b96-20241106",
     "react-dom": "19.0.0-rc-66855b96-20241106",
     "react-icons": "^5.3.0"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/numeral": "^2.0.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "eslint": "^8",

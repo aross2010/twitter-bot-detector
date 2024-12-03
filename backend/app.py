@@ -22,18 +22,7 @@ def predict():
 async def process_prediction(screen_name):
     try:
         bot_status = await make_prediction(screen_name)
-        print(f"Bot status: {bot_status}")
-
-        serialized_result = {
-            "prediction": bot_status['prediction'],
-            "probability": float(bot_status['probability']),  #converted np.float64 to Python float
-            "top_features": {
-                key: value.tolist() if isinstance(value, pd.Series) else value
-                for key, value in bot_status['top_features'].items()  
-            }
-        }
-
-        return serialized_result
+        return bot_status
     
     except Exception as e:
         print(f"Exception caught: {e}")
