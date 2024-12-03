@@ -10,10 +10,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
 @app.route('/predict', methods=['POST'])
 def predict():
     user_input = request.get_json()
@@ -44,10 +40,25 @@ async def process_prediction(screen_name):
         return {"error": str(e)}
 
 
-@app.route('/test', methods=['GET'])
-def test():
-    print("Test route hit.")
-    return jsonify({"message": "Success"})
+@app.route('/search/<username>', methods=['GET'])
+async def get_users(username):
+    client = get_client()
+    users = await client.search_user(username)
+    users_data = []
+    for user in users:
+        user_info = {
+            'id': user.id,
+            'screen_name': user.screen_name,
+            'name': user.name,
+            'profile_image': user.profile_image_url,
+            'verified': user.verified,
+            'is_blue_verified': user.is_blue_verified,
+            'followers_count': user.followers_count,
+            'following_count': user.following_count,
+            'statuses_count': user.statuses_count,
+        }
+        users_data.append(user_info)
+    return jsonify(users_data)
 
 if __name__ == '__main__':
     app.run(debug=True)

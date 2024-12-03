@@ -15,9 +15,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # or has no tweets (not enough data)
 async def make_prediction(screen_name: str):
     client = get_client()
-
     user = await client.get_user_by_screen_name(screen_name)
-    if not user: return {"prediction": "invalid", "probability": 0, "features": [], "error": "User not found."}
+    if not user: return {"prediction": "invalid", "probability": 0, "features": [], "error": "User not found."} 
 
     parsed_owned_tweets_count, parsed_owned_text_tweets_count, parsed_retweets_count, likes_count, replies_count, retweets_count, reply_tweets_count, urls_count, hashtags_count, quotes_tweet_count, sentiment =  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     age = get_age(user.created_at)
