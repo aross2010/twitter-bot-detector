@@ -31,23 +31,30 @@ async def process_prediction(screen_name):
 
 @app.route('/search/<username>', methods=['GET'])
 async def get_users(username):
-    client = get_client()
-    users = await client.search_user(username)
-    users_data = []
-    for user in users:
-        user_info = {
-            'id': user.id,
-            'screen_name': user.screen_name,
-            'name': user.name,
-            'profile_image': user.profile_image_url,
-            'verified': user.verified,
-            'is_blue_verified': user.is_blue_verified,
-            'followers_count': user.followers_count,
-            'following_count': user.following_count,
-            'statuses_count': user.statuses_count,
-        }
-        users_data.append(user_info)
-    return jsonify(users_data)
+    try:
+        client = get_client()
+        users = await client.search_user(username)
+        users_data = []
+        for user in users:
+            user_info = {
+                'id': user.id,
+                'screen_name': user.screen_name,
+                'name': user.name,
+                'profile_image': user.profile_image_url,
+                'verified': user.verified,
+                'is_blue_verified': user.is_blue_verified,
+                'followers_count': user.followers_count,
+                'following_count': user.following_count,
+                'statuses_count': user.statuses_count,
+            }
+            users_data.append(user_info)
+        return jsonify(users_data)
+    except Exception as e:
+        print(f"Exception caught: {e}")
+        if 'Rate limit exceeded' in str(e):
+            return {"error": 'Rate limit exceeded. Try again in 15 minutes.'}
+        return {"error": str(e)}
+   
 
 if __name__ == '__main__':
     app.run(debug=True)
