@@ -38,7 +38,7 @@ async def create_dataset():
 
         users_in_ds = pd.read_csv('dataset.csv').shape[0]
 
-        humans = 0
+        humans = 4
         bots = 0
 
         for _, row in df_reading.iterrows():

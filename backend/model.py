@@ -9,22 +9,17 @@ import joblib
 
 df = pd.read_csv('dataset.csv')
 df.fillna(0, inplace=True)
-df.drop(columns=['user_id', 'screen_name', 'parsed_owned_tweets_count', 'parsed_owned_text_tweets_count', 'parsed_retweets_count'], inplace=True)
+df.drop(columns=['user_id', 'screen_name', 'parsed_owned_tweets_count', 'parsed_owned_text_tweets_count', 'parsed_retweets_count', 'is_verified'], inplace=True)
 Y = df.is_bot
 df.drop('is_bot', inplace=True, axis=1)
 X = df
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=0)
+X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=82)
 model = RandomForestClassifier(n_estimators = 100, criterion = 'entropy', random_state = 0)
 model.fit(X_train.values, Y_train.values)
 y_pred = model.predict(X_test.values)
 print('Model 1 Classification Report: \n', classification_report(Y_test, y_pred))
 explainer = shap.TreeExplainer(model)
 shap_values = explainer.shap_values(X_test)
-X.drop(columns=['is_verified' ], inplace=True)
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=0)
-model.fit(X_train.values, Y_train.values)
-y_pred = model.predict(X_test.values)
-print('Model 2 Classification Report: \n', classification_report(Y_test, y_pred))
 joblib.dump(model, 'model.joblib')
 loaded_model = joblib.load('model.joblib')
 user = X_test.iloc[0]
