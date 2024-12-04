@@ -18,10 +18,12 @@ export default function Home() {
   const [isSearchLoading, setIsSearchLoading] = useState(false)
   const [detectionResults, setDetectionResults] = useState<any>(null)
   const [detectedUser, setDetectedUser] = useState<SearchedUser | null>(null)
+  const [searchError, setSearchError] = useState<null | string>(null)
 
   useEffect(() => {
     if (username.length < 1) {
       setSearchResults([])
+      setSearchError(null)
       return
     }
 
@@ -30,6 +32,14 @@ export default function Home() {
       const response = await axios.get(
         `http://127.0.0.1:5000/search/${username}`
       )
+      if (response.data.error) {
+        setSearchResults([])
+        setIsSearchLoading(false)
+        setSearchError(response.data.error)
+        setDetectedUser(null)
+        setDetectionResults(null)
+        return
+      }
       setSearchResults(response.data as SearchedUser[])
       setIsSearchLoading(false)
     }, 500)
@@ -45,7 +55,6 @@ export default function Home() {
       screen_name: user.screen_name,
     })
     const data = result.data as DetectionResults
-    console.log(data)
     setDetectionResults(data)
     setLoading(false)
   }
@@ -91,10 +100,10 @@ export default function Home() {
 
   return (
     <section className=" w-full max-w-[450px] flex flex-col">
-      <div className="flex flex-col mb-4">
+      <div className="flex flex-col mb-6">
         <h2 className="font-extrabold text-3xl">Twitter Bot Detector</h2>
         <h3 className="text-gray-500">
-          A machine learning approach to detecting Twitter/X bots.
+          A machine learning approach to detecting Twitter/X bots
         </h3>
       </div>
 
@@ -136,9 +145,18 @@ export default function Home() {
         )}
       </div>
 
+      {searchError && (
+        <div className="flex flex-col p-4 mt-6 border rounded-lg">
+          <span className="font-bold text-red-500">{searchError}</span>
+        </div>
+      )}
+
       {detectedUser && (
         <div className="flex flex-col p-4 mt-6 border rounded-lg">
-          <Link href={`https://x.com/${detectedUser.screen_name}`}>
+          <Link
+            target="_blank"
+            href={`https://x.com/${detectedUser.screen_name}`}
+          >
             <div className="flex items-center gap-2 mb-4">
               <Image
                 src={detectedUser?.profile_image}

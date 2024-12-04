@@ -8,10 +8,6 @@ const links = [
     icon: FaGithub,
     href: 'https://github.com/aross2010/twitter-bot-detector',
   },
-  {
-    icon: FaFilePdf,
-    href: '/docs',
-  },
 ] as const
 
 export default function Navbar() {

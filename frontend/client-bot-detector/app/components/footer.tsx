@@ -15,19 +15,12 @@ export default function Footer() {
               TwiBot-22
             </Link>{' '}
             team for access to their benchmark dataset. To learn more about our
-            project, read our{' '}
+            project and how we built it, check out our{' '}
             <Link
-              href="/docs"
               className="underline"
+              href={'https://github.com/aross2010/twitter-bot-detector'}
             >
-              research paper
-            </Link>{' '}
-            or view our{' '}
-            <Link
-              href="/docs"
-              className="underline"
-            >
-              presentation
+              GitHub repository
             </Link>
             .
           </p>
