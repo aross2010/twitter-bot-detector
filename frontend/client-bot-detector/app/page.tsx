@@ -4,10 +4,11 @@ import { Fragment, useEffect, useState } from 'react'
 import { DetectionResults, SearchedUser } from './lib/types'
 import Image from 'next/image'
 import { FaCircleXmark, FaMagnifyingGlass } from 'react-icons/fa6'
-import { FaSearch } from 'react-icons/fa'
 import { AiOutlineLoading } from 'react-icons/ai'
 import Link from 'next/link'
 import numeral from 'numeral'
+import blueCheck from '@/public/blue_verification_badge.png'
+import goldCheck from '@/public/gold_verification_badge.png'
 
 export default function Home() {
   const [username, setUsername] = useState('')
@@ -63,7 +64,26 @@ export default function Home() {
             height={40}
             className="rounded-full border"
           />
-          <span className="font-medium text-inherit">@{user.screen_name}</span>
+          <span className="font-medium flex items-center gap-1 text-inherit">
+            @{user.screen_name}
+            {user.verified ? (
+              <Image
+                src={goldCheck}
+                alt="gold check mark"
+                height={20}
+                width={20}
+              />
+            ) : (
+              user.is_blue_verified && (
+                <Image
+                  src={blueCheck}
+                  alt="blue check mark"
+                  height={20}
+                  width={20}
+                />
+              )
+            )}{' '}
+          </span>
         </button>
       </li>
     )
@@ -128,15 +148,32 @@ export default function Home() {
                 className="rounded-full border"
               />
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-lg leading-none">
-                  {detectedUser?.name}
+                <span className="font-bold flex items-center gap-1 text-lg leading-none">
+                  {detectedUser?.name}{' '}
+                  {detectedUser.verified ? (
+                    <Image
+                      src={goldCheck}
+                      alt="gold check mark"
+                      height={20}
+                      width={20}
+                    />
+                  ) : (
+                    detectedUser.is_blue_verified && (
+                      <Image
+                        src={blueCheck}
+                        alt="blue check mark"
+                        height={20}
+                        width={20}
+                      />
+                    )
+                  )}
                 </span>
                 <span className="text-gray-500 leading-none">
                   @{detectedUser?.screen_name}
                 </span>
               </div>
             </div>
-            <div className="flex items-center flex-wrap gap-4">
+            <div className="flex items-center flex-wrap sm:gap-4 gap-1.5">
               <div className="flex items-center gap-1">
                 <span className="font-semibold">
                   {detectedUser.following_count > 999
