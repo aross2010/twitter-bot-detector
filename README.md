@@ -1,75 +1,141 @@
-# Twitter Bot Detector - SJSU CS 166 Information Security Project
+# 🐦 Twitter Bot Detector  
+### SJSU CS 166 Information Security Project  
 
-## About
-Our project, Twitter Bot Detector, takes a machine learning approach to identifying Twitter Bots. In conjunction with the TwiBot-22 dataset, we came up with our own set of user features to anaylyze to create our own dataset. We trained a Random Forest Classifer Machine Learning model with our dataset to make a predictions on Twitter accounts of whether they are a bot or a human. Through our intuitive web application, users can find any Twitter/X account and use our model to help them make a decision on the account status.
+---
 
-### User Features
-We broke down our user features into four key categories (**: not used for model training):
+## 📖 About
 
-* For each user, we analyzed 125 tweets due to rate limiting and time constraints.
+Twitter Bot Detector is a machine learning-based project designed to identify Twitter/X bots. Using the **[TwiBot-22](https://twibot22.github.io/)** dataset we analyzed and engineered unique user features to create a custom dataset for training a **Random Forest Classifier** model. This model predicts whether a Twitter account is a bot or human.
 
-#### User Information
-- user_id**: id of the user
-- screen_name**: screen name of the user
-- is_bot: from the TwiBot-22 dataset. The target variable.
-- account_age: how old the account is in days
-- is_blue_verified: if the account has a blue checkmark verification
-- is_verified: if the account is organizationally verified
-- profile_description_sentiment: the sentiment score (-1 to 1, from transformers) of the user's profile description
-- following_count: number of users the user is following
-- followers_count: number of followers the user has
-- following_to_followers: ratio of following_count to followers_count
-- is_possibly_sensitive: 1 if the account is contains sensitive content, 0 else
-- is_default_profile_image: 1 if the account has the default profile image, 0 else
-- is_profile_banner: 1 if the account has a banner, 0 else
-- is_profile_image_valid: 1 is the account has a valid profile image (from opencv), 0 else
+Through our intuitive web application, users can search for any Twitter/X account and leverage our model to evaluate its authenticity.  
 
-#### User Activity 
-- tweet_freq: total number of tweets / account_age
-- parsed_owned_tweets_count**: number of tweets parsed that the user owns
-- parsed_owned_text_tweets_count**: number of tweets parsed that the user owns that has text
-- parsed_retweets_count**: number of tweets parsed that are retweets
-- likes_freq: number of tweets liked / account_age
-- media_freq: number of media posts / account_age
-- followers_freq: followers_count / account_age
-- following_freq: following_count / account_age
+---
 
-#### Tweet Analysis
-- replies_to_owned: ratio of tweets that are replies to other tweets to parsed_owned_tweets
-- quotes_to_owned: ratio of tweets that are quoting another tweet to parsed_owned_tweets
-- retweets_to_owned: ratio of parsed_retweets_count to parsed_owned_tweets
-- avg_urls: total number of urls in tweets / parsed_owned_tweets_count
-- avg_hashtags: total number of hashtags in tweets / parsed_owned_tweets_count
-- identical_tweet_freq: total pairs of tweets that have a 0.95 or greater similarity score (via fuzzywuzzy) / total number of tweet pairs
-- avg_tweet_sentiment: summed frequency score for each tweet with text / parsed_owned_text_tweets_count
+## 📋 Table of Contents
+- [About](#about)
+- [User Features](#user-features)
+  - [User Information](#user-information)
+  - [User Activity](#user-activity)
+  - [Tweet Analysis](#tweet-analysis)
+  - [Tweet Engagement](#tweet-engagement)
+- [Limitations](#limitations)
+- [Tools Used](#tools-used)
+  - [Web Application](#web-application)
+  - [Machine Learning](#machine-learning)
+- [Demo](#demo)
+- [Getting Started](#getting-started)
+- [License](#license)
 
-#### Tweet Engagement (scaled to per 1000 followers)
-- avg_replies_per_follower: total number of replies recieved on tweets / followers_count
-- avg_likes_per_follower: total number of likes recieved on tweets / followers_count
-- avg_retweets_per_follower: total number of retweets recieved on tweets / followers_count
+---
 
-### Limitations
-- No access to the Twitter/X API means we pivoted to using the Twikit web scraping library which limited the amount of data we could process.
-- Though the Twibot-22 dataset is reputable benchmark dataset, we would ideally prefer to use a more modern dataset with new users as the website's user base continues to evolve.
+## 📊 User Features
 
-### Tools Used
+For data about user's tweets, we analyzed **125 tweets** due to rate-limiting constraints. Features were divided into the following categories:
 
-#### Web Application
-- Backend: Python & Flask
-- Frontend: TypeScript, Next.js, TailwindCSS
+### **1. User Information**
+| Feature                     | Description                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| **user_id**                 | User's unique ID (not used for model training).                            |
+| **screen_name**             | Screen name of the user (not used for model training).                     |
+| **is_bot**                  | Target variable indicating if the account is a bot (from TwiBot-22).       |
+| **account_age**             | Account age in days.                                                       |
+| **is_blue_verified**        | Whether the account has a blue checkmark.                                  |
+| **is_verified**             | Whether the account is organizationally verified.                         |
+| **profile_description_sentiment** | Sentiment score (-1 to 1) of the user's profile description.           |
+| **following_count**         | Number of users the account is following.                                  |
+| **followers_count**         | Number of followers the account has.                                       |
+| **following_to_followers**  | Ratio of following count to follower count.                                |
+| **is_possibly_sensitive**   | Whether the account contains sensitive content.                            |
+| **is_default_profile_image**| Whether the account has the default profile image.                        |
+| **is_profile_banner**       | Whether the account has a banner.                                          |
+| **is_profile_image_valid**  | Whether the account has a valid profile image (via OpenCV).               |
 
-#### Machine Learning
-- Python: For uts extensive machine learning libraries and tools
-- Twikit: Web scraping Twitter/X data
-- Pandas: Data manipulation from and to our model and datasets
-- scikit-learn: Implementation, testing, and evaluation of our Random Forest Classifier
-- Shap: Interpreate the results of our model for model fine tuning
-- OpenCV: Image analysis
-- Transformers: Sentiment analysis
-- Joblib: Save and use our model
+### **2. User Activity**
+| Feature                     | Description                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| **tweet_freq**              | Total number of tweets divided by account age.                             |
+| **likes_freq**              | Number of tweets liked divided by account age.                             |
+| **media_freq**              | Media posts divided by account age.                                        |
+| **followers_freq**          | Followers count divided by account age.                                    |
+| **following_freq**          | Following count divided by account age.                                    |
 
-### Demo
+### **3. Tweet Analysis**
+| Feature                     | Description                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| **replies_to_owned**        | Ratio of replies to total owned tweets.                                     |
+| **quotes_to_owned**         | Ratio of quotes to total owned tweets.                                      |
+| **retweets_to_owned**       | Ratio of retweets to total owned tweets.                                    |
+| **avg_urls**                | Average number of URLs per tweet.                                           |
+| **avg_hashtags**            | Average number of hashtags per tweet.                                       |
+| **avg_tweet_sentiment**     | Average sentiment score for all tweets.                                     |
 
-https://github.com/user-attachments/assets/1f999f19-67ff-4e2f-a2e0-10a8462e9744
+### **4. Tweet Engagement (Scaled to Followers)**
+| Feature                     | Description                                                                 |
+|-----------------------------|-----------------------------------------------------------------------------|
+| **avg_replies_per_follower**| Average number of replies per 1000 followers.                              |
+| **avg_likes_per_follower**  | Average number of likes per 1000 followers.                                |
+| **avg_retweets_per_follower**| Average number of retweets per 1000 followers.                            |
+
+---
+
+## ⚠️ Limitations
+
+- **Data Constraints**: No access to the Twitter/X API led us to use the **Twikit web scraping library**, limiting the amount of data processed due to rate limiting.
+- **Dataset Freshness**: The TwiBot-22 dataset, while a reputable benchmark, is nearly three years old may not reflect the evolving Twitter/X user base.
+
+---
+
+## 🛠 Tools Used
+
+### Web Application
+- 🐍 **Backend**: Python & Flask  
+- 💻 **Frontend**: TypeScript, Next.js, TailwindCSS  
+
+### Machine Learning
+- **Python**: Extensive libraries for ML development.  
+- **Twikit**: Web scraping Twitter/X data.
+- **Jupyter Notebook**: Interactive environment for model visualization.
+- **Pandas**: Data manipulation and processing.  
+- **scikit-learn**: Implementation of Random Forest Classifier.  
+- **OpenCV**: Image analysis for profile validation.  
+- **Transformers**: Sentiment analysis for text data.  
+- **Shap**: Model interpretation and fine-tuning.  
+- **Joblib**: Saving and deploying the trained model.  
+
+---
+
+## 🎥 Demo
 
 
+
+https://github.com/user-attachments/assets/3add7525-8740-4a4a-ba40-0c1dba679028
+
+
+
+---
+
+## 🚀 Getting Started
+
+Clone the repository and install dependencies to run the project locally.
+
+```bash
+# Clone the repository
+git clone https://github.com/aross2010/twitter-bot-detector.git
+
+# Navigate to the project directory
+cd twitter-bot-detector
+
+# Install dependencies (backend)
+pip install -r requirements.txt
+
+# Start the backend server
+flask run
+
+# Navigate to the frontend directory
+cd frontend
+
+# Install dependencies (frontend)
+npm install
+
+# Start the frontend server
+npm run dev
