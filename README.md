@@ -125,11 +125,14 @@ git clone https://github.com/aross2010/twitter-bot-detector.git
 # Navigate to the project directory
 cd twitter-bot-detector
 
+# Navigate to the backend directory
+cd backend
+
 # Install dependencies (backend)
 pip install -r requirements.txt
 
 # Start the backend server
-flask run
+python3 app.py
 
 # Navigate to the frontend directory
 cd frontend
