@@ -135,7 +135,7 @@ pip install -r requirements.txt
 python3 app.py
 
 # Navigate to the frontend directory
-cd frontend
+cd frontend/client-bot-detector
 
 # Install dependencies (frontend)
 npm install
